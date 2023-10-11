@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "example_package_YOUR_USERNAME_HERE"
+version = "0.0.1"
+authors = [
+  { name="Lorenzo Cano", email="lcano@unizar.es" },
+]
+description = "classes to handle io of voxel datasets"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU",
+    "Operating System :: Ubuntu :: 20.04",
+]
+dependencies = [
+  "numpy",
+]
