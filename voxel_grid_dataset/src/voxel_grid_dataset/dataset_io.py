@@ -127,13 +127,16 @@ class DataFolder:
     @property
     def path(self):
         return os.path.join(self.manager.base_folder, self.folder)
+
     @property
     def file_names(self):
-        return os.listdir(self.path)
+        file_names = os.listdir(self.path)
+        file_names.sort()
+        return
+
     @property
     def file_paths(self):
         return [os.path.join(self.path, file_name) for file_name in self.file_names]
-        
 
     @classmethod
     def from_dict(cls, manager, dict):
@@ -187,7 +190,7 @@ def dict_comparison_AnyOfSmallerInLarger(larger_dict: dict, smaller_dict: dict):
     return result
 
 
-class DatasetIOManager:
+class DatasetInputManager:
     """This class is tasked to select, from all the datafolders that a datafolder manager tracks, the ones tha comply with a set of requriements"""
 
     def __init__(
@@ -217,3 +220,15 @@ class DatasetIOManager:
         idxs_to_remove.sort(reverse=True)
         for idx in idxs_to_remove:
             self.selected_datafolders.pop(idx)
+
+    @property
+    def file_paths(self):
+        paths = []
+        for data_folder in self.selected_datafolders:
+            paths += data_folder.file_paths
+        return paths
+
+
+class DatasetOutputManager:
+    def __init__(self, datafolders_manager: DataFoldersManager):
+        pass
