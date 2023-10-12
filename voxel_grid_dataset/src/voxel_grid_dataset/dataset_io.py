@@ -1,21 +1,21 @@
-import numpy
 import os
 import json
+import shutil
 
+class DataFoldersManager:
+    instances = []
 
-class VoxelDataFoldersManager:
-    thereis_instance = False
-
-    def __init__(self):
-        self.index = []
-        self.data_folders: list(VoxelDataFolder) = None
-        if self.__class__.thereis_instance:
+    def __init__(self, datafolder_group = "voxel_datasets", is_writer = False):
+        self.is_writer = is_writer 
+        self.index_dict = []
+        self.index: list(DataFolder) = []
+        if datafolder_group in self.__class__.instances:
             raise Exception(
                 f"There can only be one instance of the class {self.__class__}."
             )
-        self.__class__.thereis_instance = True
+        self.__class__.instances.append(datafolder_group)
         self.base_folder = os.path.join(
-            os.environ["HOME"], ".datasets", ".voxel_datasets"
+            os.environ["HOME"], ".datasets", datafolder_group
         )
         if not os.path.isdir(self.base_folder):
             os.makedirs(self.base_folder)
@@ -25,39 +25,74 @@ class VoxelDataFoldersManager:
     def __read_index(self):
         if os.path.isfile(self.index_file_path):
             with open(self.index_file_path, "r") as f:
-                self.index = json.loads(f)
+                self.index_dict = json.load(f)
         else:
-            self.index = []
-        self.data_folders = []
-        for manager_dict in self.index["datasets"]:
-            self.data_folders.append(VoxelDataFolder.from_dict(manager_dict))
+            self.index_dict = []
+        self.index = []
+        for manager_dict in self.index_dict:
+            self.index.append(DataFolder.from_dict(self,manager_dict))
 
     def __write_index(self):
+        self.index_dict = []
+        for data_folder in self.index:
+            self.index_dict.append(data_folder.to_dict())
         with open(self.index_file_path, "w") as f:
-            json.dumps(self.index, f)
+            json.dump(self.index_dict, f)
 
     def __generate_new_id(self):
-        return max([dataset["dataset_id"] for dataset in self.index[["datasets"]]])
+        max_id = -1
+        for data_folder in self.index:
+            max_id = max(max_id, data_folder.datafolder_id)
+        return max_id + 1
 
-    def new_datafolder(self):
-        self.index
+    def new_datafolder(
+        self,
+        name: str,
+        dataset_type: str,
+        path_to_env: str,
+        n_datapoints: int,
+        identifiers: list,
+    ):
+        data_folder = DataFolder(
+            self,
+            self.__generate_new_id(),
+            name,
+            dataset_type,
+            path_to_env,
+            n_datapoints,
+            identifiers,
+        )
+        os.mkdir(data_folder.path)
+        self.index.append(data_folder)
         self.__write_index()
 
-    def delele_datafolder(self):
+    def delete_datafolder(self, data_folder):
+        self.index.remove(data_folder)
         self.__write_index()
 
-    def load_dataset(self):
+    def get_dataset_file_manager(self):
         pass
 
     def __del__(self):
         self.__class__.thereis_instance = False
 
+    def __str__(self):
+        string = ""
+        for data_folder in self.index:
+            string += str(data_folder)
+        return string
 
-class VoxelDataFolder:
+    def reset_all(self):
+        user_decision = input(f"All {len(self.index)} datafolders will be removed, and the index eliminated, are you sure? [y/n]: ")
+        if user_decision.lower() == "y":
+            shutil.rmtree(self.base_folder)
+
+
+class DataFolder:
     def __init__(
         self,
-        manager: VoxelDataFoldersManager,
-        dataset_id: int,
+        manager: DataFoldersManager,
+        datafolder_id: int,
         name: str,
         dataset_type: str,
         path_to_env: str,
@@ -65,7 +100,7 @@ class VoxelDataFolder:
         identifiers: list,
     ):
         self.manager = manager
-        self.dataset_id = dataset_id
+        self.datafolder_id = datafolder_id
         self.name = name
         self.dataset_type = dataset_type
         self.path_to_env = path_to_env
@@ -74,7 +109,7 @@ class VoxelDataFolder:
 
     def to_dict(self):
         return {
-            "dataset_id": self.dataset_id,
+            "dataset_id": self.datafolder_id,
             "name": self.name,
             "dataset_type": self.dataset_type,
             "path_to_env": self.path_to_env,
@@ -84,7 +119,7 @@ class VoxelDataFolder:
 
     @property
     def folder(self):
-        return str(self.dataset_id)
+        return str(self.datafolder_id)
 
     @property
     def path(self):
@@ -102,5 +137,9 @@ class VoxelDataFolder:
             dict["identifiers"],
         )
 
+    def __str__(self):
+        return str(self.to_dict())
 
-a = VoxelDataFoldersManager()
+class DatasetIOManager:
+    def __init__(self, datafolder_manager: DataFoldersManager,):
+        pass
