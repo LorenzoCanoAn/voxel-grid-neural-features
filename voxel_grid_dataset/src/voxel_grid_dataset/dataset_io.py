@@ -2,11 +2,12 @@ import os
 import json
 import shutil
 
+
 class DataFoldersManager:
     instances = []
 
-    def __init__(self, datafolder_group = "voxel_datasets", is_writer = False):
-        self.is_writer = is_writer 
+    def __init__(self, datafolder_group="voxel_datasets", is_writer=False):
+        self.is_writer = is_writer
         self.index_dict = []
         self.index: list(DataFolder) = []
         if datafolder_group in self.__class__.instances:
@@ -30,7 +31,7 @@ class DataFoldersManager:
             self.index_dict = []
         self.index = []
         for manager_dict in self.index_dict:
-            self.index.append(DataFolder.from_dict(self,manager_dict))
+            self.index.append(DataFolder.from_dict(self, manager_dict))
 
     def __write_index(self):
         self.index_dict = []
@@ -83,7 +84,9 @@ class DataFoldersManager:
         return string
 
     def reset_all(self):
-        user_decision = input(f"All {len(self.index)} datafolders will be removed, and the index eliminated, are you sure? [y/n]: ")
+        user_decision = input(
+            f"All {len(self.index)} datafolders will be removed, and the index eliminated, are you sure? [y/n]: "
+        )
         if user_decision.lower() == "y":
             shutil.rmtree(self.base_folder)
 
@@ -97,7 +100,7 @@ class DataFolder:
         dataset_type: str,
         path_to_env: str,
         n_datapoints: int,
-        identifiers: list,
+        identifiers: dict,
     ):
         self.manager = manager
         self.datafolder_id = datafolder_id
@@ -124,6 +127,13 @@ class DataFolder:
     @property
     def path(self):
         return os.path.join(self.manager.base_folder, self.folder)
+    @property
+    def file_names(self):
+        return os.listdir(self.path)
+    @property
+    def file_paths(self):
+        return [os.path.join(self.path, file_name) for file_name in self.file_names]
+        
 
     @classmethod
     def from_dict(cls, manager, dict):
@@ -140,6 +150,70 @@ class DataFolder:
     def __str__(self):
         return str(self.to_dict())
 
+
+def dict_comparison_AllOfSmallerInLarger(larger_dict: dict, smaller_dict: dict):
+    result = True
+    for key in smaller_dict.keys():
+        if key in larger_dict.keys():
+            if isinstance(smaller_dict[key], dict):
+                result = result and (
+                    dict_comparison_AllOfSmallerInLarger(
+                        larger_dict[key], smaller_dict[key]
+                    )
+                )
+            else:
+                result = result and (smaller_dict[key] == larger_dict[key])
+        else:
+            result = result and False
+    return result
+
+
+def dict_comparison_AnyOfSmallerInLarger(larger_dict: dict, smaller_dict: dict):
+    result = False
+    for key in smaller_dict.keys():
+        if key in larger_dict.keys():
+            if isinstance(smaller_dict[key], dict):
+                result = result and (
+                    dict_comparison_AnyOfSmallerInLarger(
+                        larger_dict[key], smaller_dict[key]
+                    )
+                )
+            else:
+                result = result and (smaller_dict[key] == larger_dict[key])
+        else:
+            result = result and False
+        if result:
+            return result
+    return result
+
+
 class DatasetIOManager:
-    def __init__(self, datafolder_manager: DataFoldersManager,):
-        pass
+    """This class is tasked to select, from all the datafolders that a datafolder manager tracks, the ones tha comply with a set of requriements"""
+
+    def __init__(
+        self,
+        datafolder_manager: DataFoldersManager,
+        wanted_characteristics: dict,
+        unwanted_characteristics: dict,
+    ):
+        self.datafolder_manager = datafolder_manager
+        self.wanted_characteristics = wanted_characteristics
+        self.unwanted_characteristics = unwanted_characteristics
+        self.filter_datafolders()
+
+    def filter_datafolders(self):
+        self.selected_datafolders: list(DataFolder) = []
+        for data_folder in self.datafolder_manager.index:
+            if dict_comparison_AllOfSmallerInLarger(
+                data_folder.to_dict, self.wanted_characteristics
+            ):
+                self.selected_datafolders.append(data_folder)
+        idxs_to_remove = []
+        for idx, data_folder in enumerate(self.selected_datafolders):
+            if dict_comparison_AnyOfSmallerInLarger(
+                data_folder.to_dict(), self.unwanted_characteristics
+            ):
+                idxs_to_remove.append(idx)
+        idxs_to_remove.sort(reverse=True)
+        for idx in idxs_to_remove:
+            self.selected_datafolders.pop(idx)
