@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import copy
 
 
 class DataFoldersManager:
@@ -89,6 +90,12 @@ class DataFoldersManager:
         )
         if user_decision.lower() == "y":
             shutil.rmtree(self.base_folder)
+
+    def available_keys(self):
+        combined_dict = dict()
+        for data_folder_dict in self.index_dict:
+            combined_dict = combine_dicts(combined_dict, data_folder_dict)
+        return combined_dict
 
 
 class DataFolder:
@@ -190,8 +197,43 @@ def dict_comparison_AnyOfSmallerInLarger(larger_dict: dict, smaller_dict: dict):
     return result
 
 
+def dict_to_dict_of_sets(dic: dict):
+    dict_of_sets = dict()
+    for key in dic.keys():
+        value = dic[key]
+        if isinstance(value, set):
+            dict_of_sets[key] = value
+        elif isinstance(value, dict):
+            dict_of_sets[key] = dict_to_dict_of_sets(value)
+        else:
+            dict_of_sets[key] = {
+                value,
+            }
+    return dict_of_sets
+
+
+def combine_dicts(dict_1: dict, dict_2: dict):
+    combined_dict = dict_to_dict_of_sets(dict_1)
+    for key2 in dict_2.keys():
+        value2 = dict_2[key2]
+        if key2 in combined_dict:
+            if isinstance(value2, dict):
+                combined_dict[key2] = combine_dicts(combined_dict[key2], value2)
+            else:
+                combined_dict[key2].add(value2)
+        else:
+            if isinstance(value2, dict):
+                combined_dict[key2] = dict_to_dict_of_sets(value2)
+            else:
+                combined_dict[key2] = {
+                    value2,
+                }
+    return combined_dict
+
+
 class DatasetInputManager:
-    """This class is tasked to select, from all the datafolders that a datafolder manager tracks, the ones tha comply with a set of requriements"""
+    """This class handles the file management for reading datasets. At creation, specify the desired characteristics and it will select the
+    datafolders that fit the description"""
 
     def __init__(
         self,
@@ -230,5 +272,7 @@ class DatasetInputManager:
 
 
 class DatasetOutputManager:
+    """This class is the one that handles the files to write the dataset"""
+
     def __init__(self, datafolders_manager: DataFoldersManager):
         pass
