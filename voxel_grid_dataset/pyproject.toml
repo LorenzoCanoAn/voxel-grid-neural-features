@@ -2,7 +2,7 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
-name = "example_package_YOUR_USERNAME_HERE"
+name = "voxel_grid_dataset"
 version = "0.0.1"
 authors = [
   { name="Lorenzo Cano", email="lcano@unizar.es" },
@@ -17,3 +17,9 @@ dependencies = [
   "numpy",
   
 ]
+[tool.hatch.build]
+only-packages = true
+sources = ["src"]
+[tool.hatch.build.targets.wheel]
+only-include = ["src"]
+packages = ["src/voxel_grid_dataset"]

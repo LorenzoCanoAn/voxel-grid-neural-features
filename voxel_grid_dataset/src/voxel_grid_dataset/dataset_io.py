@@ -17,7 +17,7 @@ class DataFoldersManager:
     def __init__(self, datafolder_group="voxel_datasets"):
         self.datafolder_group = datafolder_group
         self.index_dict = []
-        self.index: list(DataFolder) = []
+        self.index: list[DataFolder] = []
         if len(self.__class__.instances) == 1:
             raise Exception(
                 f"There can only be one instance of the class {self.__class__}."
@@ -63,7 +63,7 @@ class DataFoldersManager:
 
     def new_datafolder(
         self,
-        name: str,
+        dataset_name: str,
         dataset_type: str,
         path_to_env: str,
         identifiers: list,
@@ -71,7 +71,7 @@ class DataFoldersManager:
         data_folder = DataFolder(
             self,
             self.__generate_new_id(),
-            name,
+            dataset_name,
             dataset_type,
             path_to_env,
             identifiers,
@@ -82,8 +82,16 @@ class DataFoldersManager:
         return data_folder
 
     def delete_datafolder(self, data_folder):
+        assert isinstance(data_folder, DataFolder)
+        shutil.rmtree(data_folder.path)
         self.index.remove(data_folder)
         self.__write_index()
+        self.__read_index()
+
+    def delete_datafolders(self, data_folders):
+        assert isinstance(data_folders, list)
+        for data_folder in data_folders:
+            self.delete_datafolder(data_folder)
 
     def __del__(self):
         self.__class__.instances.remove(self)
@@ -107,28 +115,57 @@ class DataFoldersManager:
             combined_dict = combine_dicts(combined_dict, data_folder_dict)
         return combined_dict
 
+    def filter_datafolders(self, wanted_characteristics:dict = dict(), unwanted_characteristics:dict = dict()):
+        selected_datafolders: list[DataFolder] = []
+        for data_folder in self.index:
+            if dict_comparison_AllOfSmallerInLarger(
+                data_folder.to_dict(), wanted_characteristics
+            ):
+                selected_datafolders.append(data_folder)
+        idxs_to_remove = []
+        for idx, data_folder in enumerate(selected_datafolders):
+            if dict_comparison_AnyOfSmallerInLarger(
+                data_folder.to_dict(), unwanted_characteristics
+            ):
+                idxs_to_remove.append(idx)
+        idxs_to_remove.sort(reverse=True)
+        for idx in idxs_to_remove:
+            selected_datafolders.pop(idx)
+        return selected_datafolders
+
+    def gen_new_name(self, name):
+        changed_name = name
+        current_names = [datafolder.dataset_name for datafolder in self.index]
+        counter = 1
+        while True:
+            if changed_name in current_names:
+                changed_name = name + f"_{counter}"
+                counter +=1
+            else:
+                return changed_name
+
 
 class DataFolder:
     def __init__(
         self,
         manager: DataFoldersManager,
         datafolder_id: int,
-        name: str,
+        dataset_name: str,
         dataset_type: str,
         path_to_env: str,
         identifiers: dict,
     ):
         self.manager = manager
         self.datafolder_id = datafolder_id
-        self.name = name
+        self.dataset_name = dataset_name
         self.dataset_type = dataset_type
         self.path_to_env = path_to_env
         self.identifiers = identifiers
 
     def to_dict(self):
         return {
-            "dataset_id": self.datafolder_id,
-            "name": self.name,
+            "datafolder_id": self.datafolder_id,
+            "dataset_name": self.dataset_name,
             "dataset_type": self.dataset_type,
             "path_to_env": self.path_to_env,
             "identifiers": self.identifiers,
@@ -156,8 +193,8 @@ class DataFolder:
     def from_dict(cls, manager, dict):
         return cls(
             manager,
-            dict["dataset_id"],
-            dict["name"],
+            dict["datafolder_id"],
+            dict["dataset_name"],
             dict["dataset_type"],
             dict["path_to_env"],
             dict["identifiers"],
@@ -181,6 +218,8 @@ def dict_comparison_AllOfSmallerInLarger(larger_dict: dict, smaller_dict: dict):
                 result = result and (smaller_dict[key] == larger_dict[key])
         else:
             result = result and False
+        if not result:
+            return result
     return result
 
 
@@ -253,21 +292,9 @@ class DatasetInputManager:
         self.filter_datafolders()
 
     def filter_datafolders(self):
-        self.selected_datafolders: list[DataFolder] = []
-        for data_folder in self.datafolder_manager.index:
-            if dict_comparison_AllOfSmallerInLarger(
-                data_folder.to_dict(), self.wanted_characteristics
-            ):
-                self.selected_datafolders.append(data_folder)
-        idxs_to_remove = []
-        for idx, data_folder in enumerate(self.selected_datafolders):
-            if dict_comparison_AnyOfSmallerInLarger(
-                data_folder.to_dict(), self.unwanted_characteristics
-            ):
-                idxs_to_remove.append(idx)
-        idxs_to_remove.sort(reverse=True)
-        for idx in idxs_to_remove:
-            self.selected_datafolders.pop(idx)
+        self.selected_datafolders = self.datafolder_manager.filter_datafolders(
+            self.wanted_characteristics, self.unwanted_characteristics
+        )
 
     @property
     def file_paths(self):
@@ -282,19 +309,33 @@ class DatasetOutputManager:
 
     def __init__(
         self,
-        name: str,
+        dataset_name: str,
         dataset_type: str,
         identifiers: dict,
         datafolders_manager: DataFoldersManager = DataFoldersManager.get_current_instance(),
     ):
         self.datafolders_manager = datafolders_manager
-        self.name = name
+        self.dataset_name = dataset_name
+        if self.dataset_name in [
+            datafolder.dataset_name for datafolder in self.datafolders_manager.index
+        ]:
+            user_decision = input(
+                "The proposed name is already in use, overwrite [y/n]?"
+            )
+            if user_decision.lower() == "y":
+                self.datafolders_manager.delete_datafolders(
+                    self.datafolders_manager.filter_datafolders(
+                        wanted_characteristics={"dataset_name": self.dataset_name}
+                    )
+                )
+            else:
+                self.dataset_name = self.datafolders_manager.gen_new_name(self.dataset_name)
         self.dataset_type = dataset_type
         self.identifyers = identifiers
 
     def new_datafolder(self, path_to_env: str):
         self.current_datafolder = self.datafolders_manager.new_datafolder(
-            self.name, self.dataset_type, path_to_env, self.identifyers
+            self.dataset_name, self.dataset_type, path_to_env, self.identifyers
         )
         self.current_datafolder_dtp_counter = 0
 
@@ -302,3 +343,6 @@ class DatasetOutputManager:
         filename = f"{self.current_datafolder_dtp_counter:010d}.{extension}"
         self.current_datafolder_dtp_counter += 1
         return os.path.join(self.current_datafolder.path, filename)
+
+dtpom = DatasetOutputManager("hola",'test_dataset',{'very_pretty':True})
+dtpom.new_datafolder('bb')
