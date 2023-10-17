@@ -343,6 +343,3 @@ class DatasetOutputManager:
         filename = f"{self.current_datafolder_dtp_counter:010d}.{extension}"
         self.current_datafolder_dtp_counter += 1
         return os.path.join(self.current_datafolder.path, filename)
-
-dtpom = DatasetOutputManager("hola",'test_dataset',{'very_pretty':True})
-dtpom.new_datafolder('bb')
