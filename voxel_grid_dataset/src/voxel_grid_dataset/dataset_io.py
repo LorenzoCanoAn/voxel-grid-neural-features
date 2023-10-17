@@ -1,24 +1,33 @@
 import os
 import json
 import shutil
-import copy
+import time
 
 
 class DataFoldersManager:
     instances = []
 
-    def __init__(self, datafolder_group="voxel_datasets", is_writer=False):
-        self.is_writer = is_writer
+    @classmethod
+    def get_current_instance(cls):
+        if len(cls.instances) == 0:
+            return cls()
+        else:
+            return cls.instances[0]
+
+    def __init__(self, datafolder_group="voxel_datasets"):
+        self.datafolder_group = datafolder_group
         self.index_dict = []
         self.index: list(DataFolder) = []
-        if datafolder_group in self.__class__.instances:
+        if len(self.__class__.instances) == 1:
             raise Exception(
                 f"There can only be one instance of the class {self.__class__}."
             )
-        self.__class__.instances.append(datafolder_group)
+        else:
+            self.__class__.instances.append(self)
         self.base_folder = os.path.join(
             os.environ["HOME"], ".datasets", datafolder_group
         )
+        self.block_file_path = os.path.join(self.base_folder, "block")
         if not os.path.isdir(self.base_folder):
             os.makedirs(self.base_folder)
         self.index_file_path = os.path.join(self.base_folder, "index.json")
@@ -35,11 +44,16 @@ class DataFoldersManager:
             self.index.append(DataFolder.from_dict(self, manager_dict))
 
     def __write_index(self):
+        while os.path.isfile(self.block_file_path):
+            time.sleep(0.1)
+        with open(self.block_file_path, "w+") as f:
+            f.write("a")
         self.index_dict = []
         for data_folder in self.index:
             self.index_dict.append(data_folder.to_dict())
         with open(self.index_file_path, "w") as f:
             json.dump(self.index_dict, f)
+        os.remove(self.block_file_path)
 
     def __generate_new_id(self):
         max_id = -1
@@ -52,7 +66,6 @@ class DataFoldersManager:
         name: str,
         dataset_type: str,
         path_to_env: str,
-        n_datapoints: int,
         identifiers: list,
     ):
         data_folder = DataFolder(
@@ -61,22 +74,19 @@ class DataFoldersManager:
             name,
             dataset_type,
             path_to_env,
-            n_datapoints,
             identifiers,
         )
         os.mkdir(data_folder.path)
         self.index.append(data_folder)
         self.__write_index()
+        return data_folder
 
     def delete_datafolder(self, data_folder):
         self.index.remove(data_folder)
         self.__write_index()
 
-    def get_dataset_file_manager(self):
-        pass
-
     def __del__(self):
-        self.__class__.thereis_instance = False
+        self.__class__.instances.remove(self)
 
     def __str__(self):
         string = ""
@@ -106,7 +116,6 @@ class DataFolder:
         name: str,
         dataset_type: str,
         path_to_env: str,
-        n_datapoints: int,
         identifiers: dict,
     ):
         self.manager = manager
@@ -114,7 +123,6 @@ class DataFolder:
         self.name = name
         self.dataset_type = dataset_type
         self.path_to_env = path_to_env
-        self.n_datapoints = n_datapoints
         self.identifiers = identifiers
 
     def to_dict(self):
@@ -123,7 +131,6 @@ class DataFolder:
             "name": self.name,
             "dataset_type": self.dataset_type,
             "path_to_env": self.path_to_env,
-            "n_datapoints": self.n_datapoints,
             "identifiers": self.identifiers,
         }
 
@@ -153,7 +160,6 @@ class DataFolder:
             dict["name"],
             dict["dataset_type"],
             dict["path_to_env"],
-            dict["n_datapoints"],
             dict["identifiers"],
         )
 
@@ -247,10 +253,10 @@ class DatasetInputManager:
         self.filter_datafolders()
 
     def filter_datafolders(self):
-        self.selected_datafolders: list(DataFolder) = []
+        self.selected_datafolders: list[DataFolder] = []
         for data_folder in self.datafolder_manager.index:
             if dict_comparison_AllOfSmallerInLarger(
-                data_folder.to_dict, self.wanted_characteristics
+                data_folder.to_dict(), self.wanted_characteristics
             ):
                 self.selected_datafolders.append(data_folder)
         idxs_to_remove = []
@@ -274,5 +280,25 @@ class DatasetInputManager:
 class DatasetOutputManager:
     """This class is the one that handles the files to write the dataset"""
 
-    def __init__(self, datafolders_manager: DataFoldersManager):
-        pass
+    def __init__(
+        self,
+        name: str,
+        dataset_type: str,
+        identifiers: dict,
+        datafolders_manager: DataFoldersManager = DataFoldersManager.get_current_instance(),
+    ):
+        self.datafolders_manager = datafolders_manager
+        self.name = name
+        self.dataset_type = dataset_type
+        self.identifyers = identifiers
+
+    def new_datafolder(self, path_to_env: str):
+        self.current_datafolder = self.datafolders_manager.new_datafolder(
+            self.name, self.dataset_type, path_to_env, self.identifyers
+        )
+        self.current_datafolder_dtp_counter = 0
+
+    def get_path_to_new_train_sample(self, extension="np"):
+        filename = f"{self.current_datafolder_dtp_counter:010d}.{extension}"
+        self.current_datafolder_dtp_counter += 1
+        return os.path.join(self.current_datafolder.path, filename)
