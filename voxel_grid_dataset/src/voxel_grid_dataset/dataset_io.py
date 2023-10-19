@@ -115,7 +115,11 @@ class DataFoldersManager:
             combined_dict = combine_dicts(combined_dict, data_folder_dict)
         return combined_dict
 
-    def filter_datafolders(self, wanted_characteristics:dict = dict(), unwanted_characteristics:dict = dict()):
+    def filter_datafolders(
+        self,
+        wanted_characteristics: dict = dict(),
+        unwanted_characteristics: dict = dict(),
+    ):
         selected_datafolders: list[DataFolder] = []
         for data_folder in self.index:
             if dict_comparison_AllOfSmallerInLarger(
@@ -140,7 +144,7 @@ class DataFoldersManager:
         while True:
             if changed_name in current_names:
                 changed_name = name + f"_{counter}"
-                counter +=1
+                counter += 1
             else:
                 return changed_name
 
@@ -282,26 +286,32 @@ class DatasetInputManager:
 
     def __init__(
         self,
-        datafolder_manager: DataFoldersManager,
         wanted_characteristics: dict,
         unwanted_characteristics: dict,
+        datafolders_manager: DataFoldersManager = DataFoldersManager.get_current_instance(),
     ):
-        self.datafolder_manager = datafolder_manager
+        self.datafolders_manager = datafolders_manager
         self.wanted_characteristics = wanted_characteristics
         self.unwanted_characteristics = unwanted_characteristics
+        self.paths = None
         self.filter_datafolders()
 
     def filter_datafolders(self):
-        self.selected_datafolders = self.datafolder_manager.filter_datafolders(
+        self.selected_datafolders = self.datafolders_manager.filter_datafolders(
             self.wanted_characteristics, self.unwanted_characteristics
         )
 
     @property
     def file_paths(self):
-        paths = []
-        for data_folder in self.selected_datafolders:
-            paths += data_folder.file_paths
-        return paths
+        if self.paths is None:
+            self.paths = []
+            for data_folder in self.selected_datafolders:
+                self.paths += data_folder.file_paths
+        return self.paths
+
+    @property
+    def n_datapoints(self):
+        return len(self.file_paths)
 
 
 class DatasetOutputManager:
@@ -329,7 +339,9 @@ class DatasetOutputManager:
                     )
                 )
             else:
-                self.dataset_name = self.datafolders_manager.gen_new_name(self.dataset_name)
+                self.dataset_name = self.datafolders_manager.gen_new_name(
+                    self.dataset_name
+                )
         self.dataset_type = dataset_type
         self.identifyers = identifiers
 
@@ -339,7 +351,7 @@ class DatasetOutputManager:
         )
         self.current_datafolder_dtp_counter = 0
 
-    def get_path_to_new_train_sample(self, extension="np"):
+    def get_path_to_new_train_sample(self, extension="npz"):
         filename = f"{self.current_datafolder_dtp_counter:010d}.{extension}"
         self.current_datafolder_dtp_counter += 1
         return os.path.join(self.current_datafolder.path, filename)
