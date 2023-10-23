@@ -1,0 +1,33 @@
+<launch>
+    <arg name='paths_to_envs' default='/home/lorenzo/gazebo_worlds/modified_playpen'/>
+    <arg name='n_samples_per_env' default='1000'/>
+    <arg name='robot_name' default='husky'/>
+    <arg name='voxelgrid_topic' default='/voxelized_ptcl'/>
+    <arg name='dataset_name' default='test_dataset'/>
+    <arg name='max_dist_between_poses' default='1'/>
+    <arg name='voxel_size' default='0.125'/>
+    <arg name='max_x' default='10'/>
+    <arg name='max_y' default='10'/>
+    <arg name='max_z' default='2'/> 
+    <node name='pointcloud_to_voxelgrid' type="pointcloud_to_voxelgrid" pkg="lidar_to_other" output="screen">
+        <param name="voxel_size" value="$(arg voxel_size)"/>
+        <param name="input_topic" value="/points"/>
+        <param name="output_topic" value="$(arg voxelgrid_topic)"/>
+        <param name="frame" value="velodyne"/>        
+        <param name="max_x" value = "$(arg max_x)"/>
+        <param name="max_y" value = "$(arg max_y)"/>
+        <param name="max_z" value = "$(arg max_z)"/>
+    </node>
+    <node name='dataset_collection_node' type="collect_dataset_node.py" pkg="voxel_grid_dataset_collection" output="screen">
+        <param name="paths_to_envs" value="$(arg paths_to_envs)"/>
+        <param name="n_samples_per_env" value="$(arg n_samples_per_env)"/>
+        <param name="robot_name" value="$(arg robot_name)"/>
+        <param name="voxelgrid_topic" value="$(arg voxelgrid_topic)"/>
+        <param name="dataset_name" value="$(arg dataset_name)"/>
+        <param name="max_dist_between_poses" value="$(arg max_dist_between_poses)"/>
+        <param name="voxel_size" value="$(arg voxel_size)"/>
+        <param name="max_x" value="$(arg max_x)"/>
+        <param name="max_y" value="$(arg max_y)"/>
+        <param name="max_z" value="$(arg max_z)"/>
+    </node>
+</launch>

@@ -1,0 +1,19 @@
+<launch>
+    <arg name="voxel_topic" value="/voxelgrid"></arg>
+    <arg name="path_to_model" value="$(env HOME)/models/a1e-05.torch"></arg>
+
+    <node name='pointcloud_to_voxelgrid' type="pointcloud_to_voxelgrid" pkg="lidar_to_other"
+        output="screen">
+        <param name="voxel_size" value="0.125" />
+        <param name="input_topic" value="/points" />
+        <param name="output_topic" value="$(arg voxel_topic)" />
+        <param name="frame" value="velodyne" />
+        <param name="max_x" value="10" />
+        <param name="max_y" value="10" />
+        <param name="max_z" value="2" />
+    </node>
+    <node name="network_test_node" pkg="voxel_grid_neural_compression_ros" type="test_network.py" output="screen">
+        <param name="path_to_model" value="$(arg path_to_model)" />
+        <param name="voxel_topic" value="$(arg voxel_topic)" />
+    </node>
+</launch>

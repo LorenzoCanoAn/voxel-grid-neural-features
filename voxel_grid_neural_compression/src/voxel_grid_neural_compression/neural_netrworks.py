@@ -28,7 +28,7 @@ class VoxelGridCompressor(nn.Module):
         self.comp_fc2 = nn.Linear(128, 264)
         self.comp_fc3 = nn.Linear(264, 128)
         self.comp_fc4 = nn.Linear(128, 64)
-        self.comp_fc5 = nn.Linear(64, 6)
+        self.comp_fc5 = nn.Linear(64, 1)
         # Define dropout layer for regularization
         self.dropout = nn.Dropout(0.5)
 
@@ -66,30 +66,3 @@ class VoxelGridCompressor(nn.Module):
         return z
 
 
-class my_dataset(Dataset):
-    def __init__(self, length = 100000):
-        self.length = length
-    def __len__(self):
-        return self.length
-    def __getitem__(self, index):
-        x = torch.randint(0,15,(1,100,100,30)).to(torch.float32).to('cuda')
-        y = torch.randint(0,15,(1,100,100,30)).to(torch.float32).to('cuda')
-        z = torch.randint(0,15,(6,)).to(torch.float32).to('cuda')
-        return x,y,z
-
-model = VoxelGridCompressor().to('cuda')
-criterion = nn.MSELoss(6)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-
-# Training loop
-dataset = my_dataset()
-trainloader = DataLoader(dataset,batch_size=32)
-for epoch in tqdm(range(5)):  # Change the number of epochs as needed
-    running_loss = 0.0
-    for vg1, vg2, labels in tqdm(trainloader):
-        optimizer.zero_grad()
-        outputs = model(vg1, vg2)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item()
