@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import rospy
 from gazebo_msgs.srv import SetModelState, SetModelStateResponse, SetModelStateRequest
-from voxel_grid_dataset.dataset import TwoVoxelGridsTwoTransformsDataset
+from voxel_grid_dataset.dataset import VoxelGridDataset
 import json
 import os
 import threading
@@ -110,7 +110,7 @@ class DatasetCollectionNode:
         self.dataset_name = rospy.get_param("~dataset_name")
         self.max_dist_between_poses = rospy.get_param("~max_dist_between_poses")
         self.ros_thread = threading.Thread(target=self.ros_thread_target)
-        self.dataset = TwoVoxelGridsTwoTransformsDataset(
+        self.dataset = VoxelGridDataset(
             self.dataset_name,
             mode="write",
             identifiers={
